@@ -1,0 +1,48 @@
+---
+# instalacja agenta, konfiguracja agenta, start, dodanie do autostartu usługi i odblokowania portów
+- name: Edycja pliku
+  hosts: agentz
+  become: True
+
+  tasks:
+    - name: Instalacja Zabbix Agent
+      yum: name="http://repo.zabbix.com/zabbix/5.0/rhel/8/x86_64/zabbix-agent-5.0.0-1.el8.x86_64.rpm"
+    - name: Zmiana IP
+      replace:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: 'Server=127.0.0.1'
+        replace: 'Server=192.168.0.100'
+        backup: yes
+    - name: Zmiana Portu
+      replace:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '# ListenPort=10050'
+        replace: 'ListenPort=10051'
+        backup: yes
+    - name: Zmiana StartAgents
+      replace:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '# StartAgents=3'
+        replace: 'StartAgents=5'
+        backup: yes
+    - name: Zarejestruj hostname
+      command: hostname
+      register: nazwa
+    - name: Dodanie hostname
+      replace:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: 'Hostname=Zabbix server'
+        replace: 'Hostname={{ nazwa.stdout }}'
+    - name: start zabbix-agent
+      service: name=zabbix-agent state=started enabled=yes
+    - name: odblokowanie portu
+      firewalld:
+            port: 10051/tcp
+            permanent: yes
+            state: enabled
+    - name: przeładuj firewall
+      systemd:
+            name: firewalld
+            state: reloaded
+    - name: Restart
+      reboot:
